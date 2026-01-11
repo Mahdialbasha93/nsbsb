@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Server Cloner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        .info-text {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 6px;
+            display: block;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(244, 67, 54, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #f44336;
+        }
+
+        .status-indicator.active {
+            border-left-color: #4CAF50;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+        }
+
+        .status-dot.active {
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .log-container {
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 20px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #fff;
+            margin-top: 20px;
+        }
+
+        .log-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .log-success { color: #4CAF50; }
+        .log-error { color: #f44336; }
+        .log-warning { color: #ff9800; }
+        .log-info { color: #2196F3; }
+        .log-system { color: #9C27B0; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #4CAF50;
+        }
+
+        .notification.error {
+            background: #f44336;
+        }
+
+        .notification.warning {
+            background: #ff9800;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .settings-toggle {
+            text-align: right;
+            margin-bottom: 15px;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .advanced-settings {
+            display: none;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .advanced-settings.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Discord Server Cloner</h1>
+            <p>Clone Discord servers quickly and efficiently</p>
+        </div>
+
+        <div class="card">
+            <div class="settings-toggle">
+                <button class="settings-btn" onclick="toggleSettings()">⚙️ Advanced Settings</button>
+            </div>
+
+            <div class="advanced-settings" id="advancedSettings">
+                <div class="form-group">
+                    <label>⚡ Auto-Reconnect Settings</label>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="autoReconnect" checked>
+                            Enable Auto-Reconnect
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="skipEmojis">
+                            Skip Emojis
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-indicator" id="statusIndicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready to start cloning</span>
+            </div>
+
+            <div class="form-group">
+                <label for="token">🔑 Discord Token</label>
+                <input type="password" id="token" class="form-control" placeholder="Enter your Discord token">
+                <span class="info-text">Get token from: F12 → Application → Local Storage → token</span>
+            </div>
+
+            <div class="form-group">
+                <label for="sourceGuildId">📤 Source Server ID</label>
+                <input type="text" id="sourceGuildId" class="form-control" placeholder="Source server ID">
+                <span class="info-text">Right-click server → Copy ID (Developer Mode must be ON)</span>
+            </div>
+
+            <div class="form-group">
+                <label for="targetGuildId">📥 Target Server ID</label>
+                <input type="text" id="targetGuildId" class="form-control" placeholder="Target server ID">
+                <span class="info-text">You need Admin permissions in target server</span>
+            </div>
+
+            <button class="btn btn-primary" id="startBtn" onclick="startCloning()">
+                <span>🚀 START CLONING</span>
+            </button>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 20px; color: #333;">📊 Cloning Statistics</h3>
+            <div class="stats" id="statsContainer">
+                <div class="stat-card">
+                    <div class="stat-value" id="rolesStat">0</div>
+                    <div class="stat-label">Roles Created</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="channelsStat">0</div>
+                    <div class="stat-label">Channels Created</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="emojisStat">0</div>
+                    <div class="stat-label">Emojis Created</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="reconnectsStat">0</div>
+                    <div class="stat-label">Reconnects</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 20px; color: #333;">📝 Live Logs</h3>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry log-system">System ready. Enter your credentials above to start.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        let isCloning = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 3;
+        const SLOW_THRESHOLD = 30000; // 30 seconds
+        let lastActivityTime = Date.now();
+        let slowDetectionInterval = null;
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            
+            const time = new Date().toLocaleTimeString();
+            logEntry.innerHTML = `<span style="color: #666;">[${time}]</span> ${message}`;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(status, isActive = false) {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            statusText.textContent = status;
+            
+            if (isActive) {
+                statusIndicator.classList.add('active');
+                statusDot.classList.add('active');
+            } else {
+                statusIndicator.classList.remove('active');
+                statusDot.classList.remove('active');
+            }
+        }
+
+        function updateStat(statId, value) {
+            const element = document.getElementById(statId);
+            if (element) {
+                element.textContent = value;
+                
+                // Add animation
+                element.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    element.style.transform = 'scale(1)';
+                }, 300);
+            }
+        }
+
+        function startCloning() {
+            const token = document.getElementById('token').value.trim();
+            const sourceGuildId = document.getElementById('sourceGuildId').value.trim();
+            const targetGuildId = document.getElementById('targetGuildId').value.trim();
+            const autoReconnect = document.getElementById('autoReconnect').checked;
+            const skipEmojis = document.getElementById('skipEmojis').checked;
+            
+            if (!token || !sourceGuildId || !targetGuildId) {
+                showNotification('Please fill in all required fields!', 'error');
+                return;
+            }
+
+            if (isCloning) {
+                stopCloning();
+                return;
+            }
+
+            // Reset stats
+            updateStat('rolesStat', '0');
+            updateStat('channelsStat', '0');
+            updateStat('emojisStat', '0');
+            updateStat('reconnectsStat', '0');
+            
+            isCloning = true;
+            reconnectAttempts = 0;
+            lastActivityTime = Date.now();
+            
+            // Update UI
+            const startBtn = document.getElementById('startBtn');
+            startBtn.innerHTML = '<span class="loader"></span> STOP CLONING';
+            startBtn.classList.remove('btn-primary');
+            startBtn.classList.add('btn-danger');
+            
+            updateStatus('Starting cloning process...', true);
+            
+            // Start slow detection
+            if (autoReconnect) {
+                startSlowDetection();
+            }
+            
+            // Clear logs
+            document.getElementById('logContainer').innerHTML = '';
+            addLog('🚀 Starting cloning process...', 'system');
+            addLog(`Source Server ID: ${sourceGuildId}`, 'info');
+            addLog(`Target Server ID: ${targetGuildId}`, 'info');
+            addLog(`Auto-reconnect: ${autoReconnect ? 'Enabled' : 'Disabled'}`, 'info');
+            
+            // Simulate cloning process (in real implementation, this would connect to backend)
+            simulateCloningProcess(token, sourceGuildId, targetGuildId, autoReconnect, skipEmojis);
+        }
+
+        function stopCloning() {
+            isCloning = false;
+            
+            // Update UI
+            const startBtn = document.getElementById('startBtn');
+            startBtn.innerHTML = '🚀 START CLONING';
+            startBtn.classList.remove('btn-danger');
+            startBtn.classList.add('btn-primary');
+            
+            updateStatus('Cloning stopped by user');
+            addLog('🛑 Cloning stopped by user', 'warning');
+            
+            // Stop slow detection
+            stopSlowDetection();
+            
+            showNotification('Cloning stopped', 'warning');
+        }
+
+        function simulateCloningProcess(token, sourceGuildId, targetGuildId, autoReconnect, skipEmojis) {
+            // This is a simulation - in real implementation, this would be actual Discord API calls
+            let progress = 0;
+            const totalSteps = skipEmojis ? 5 : 8;
+            
+            const steps = [
+                { name: 'Connecting to Discord...', delay: 1000 },
+                { name: 'Deleting existing content...', delay: 2000 },
+                { name: 'Cloning roles...', delay: 3000 },
+                { name: 'Cloning categories...', delay: 2000 },
+                { name: 'Cloning channels...', delay: 4000 },
+                ...(!skipEmojis ? [{ name: 'Cloning emojis...', delay: 5000 }] : []),
+                { name: 'Updating server info...', delay: 1000 },
+                { name: 'Finalizing...', delay: 1500 }
+            ];
+            
+            function processStep(index) {
+                if (!isCloning || index >= steps.length) {
+                    if (isCloning) {
+                        finishCloning();
+                    }
+                    return;
+                }
+                
+                const step = steps[index];
+                updateActivity();
+                
+                // Simulate step with random success/failure
+                const success = Math.random() > 0.1; // 90% success rate
+                
+                setTimeout(() => {
+                    if (!isCloning) return;
+                    
+                    progress++;
+                    
+                    if (success) {
+                        addLog(`✅ ${step.name}`, 'success');
+                        
+                        // Update stats based on step
+                        if (step.name.includes('roles')) {
+                            const roles = Math.floor(Math.random() * 10) + 5;
+                            updateStat('rolesStat', roles);
+                        } else if (step.name.includes('channels')) {
+                            const channels = Math.floor(Math.random() * 15) + 8;
+                            updateStat('channelsStat', channels);
+                        } else if (step.name.includes('emojis')) {
+                            const emojis = Math.floor(Math.random() * 20) + 10;
+                            updateStat('emojisStat', emojis);
+                        }
+                        
+                        // Check for slowdown
+                        if (autoReconnect && isSlow() && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                            reconnect();
+                        } else {
+                            processStep(index + 1);
+                        }
+                    } else {
+                        addLog(`❌ Failed: ${step.name}`, 'error');
+                        
+                        // Retry logic
+                        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                            addLog('🔄 Retrying step...', 'warning');
+                            setTimeout(() => processStep(index), 2000);
+                        } else {
+                            addLog('❌ Maximum retry attempts reached', 'error');
+                            stopCloning();
+                        }
+                    }
+                }, step.delay);
+            }
+            
+            processStep(0);
+        }
+
+        function finishCloning() {
+            isCloning = false;
+            
+            // Update UI
+            const startBtn = document.getElementById('startBtn');
+            startBtn.innerHTML = '🚀 START CLONING';
+            startBtn.classList.remove('btn-danger');
+            startBtn.classList.add('btn-primary');
+            
+            updateStatus('Cloning completed successfully!');
+            addLog('🎉 Server cloning completed successfully!', 'success');
+            
+            // Stop slow detection
+            stopSlowDetection();
+            
+            showNotification('Cloning completed successfully!', 'success');
+        }
+
+        function updateActivity() {
+            lastActivityTime = Date.now();
+        }
+
+        function isSlow() {
+            const timeSinceLastActivity = Date.now() - lastActivityTime;
+            return timeSinceLastActivity > SLOW_THRESHOLD;
+        }
+
+        function startSlowDetection() {
+            slowDetectionInterval = setInterval(() => {
+                if (isCloning && isSlow() && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    reconnect();
+                }
+            }, 5000); // Check every 5 seconds
+        }
+
+        function stopSlowDetection() {
+            if (slowDetectionInterval) {
+                clearInterval(slowDetectionInterval);
+                slowDetectionInterval = null;
+            }
+        }
+
+        function reconnect() {
+            reconnectAttempts++;
+            updateStat('reconnectsStat', reconnectAttempts);
+            
+            addLog(`⚡ Slow operation detected. Reconnecting... (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`, 'warning');
+            updateActivity();
+            
+            // Simulate reconnection delay
+            setTimeout(() => {
+                addLog('✅ Reconnected successfully! Resuming...', 'success');
+            }, 2000);
+        }
+
+        function toggleSettings() {
+            const settings = document.getElementById('advancedSettings');
+            settings.classList.toggle('show');
+        }
+
+        // Initialize
+        updateStatus('Ready to start cloning');
+        addLog('System initialized. Enter your Discord token and server IDs to begin.', 'system');
+
+        // Auto-save token to localStorage
+        const tokenInput = document.getElementById('token');
+        const savedToken = localStorage.getItem('discord_token');
+        if (savedToken) {
+            tokenInput.value = savedToken;
+        }
+
+        tokenInput.addEventListener('input', () => {
+            localStorage.setItem('discord_token', tokenInput.value);
+        });
+
+        // Auto-save server IDs
+        const sourceInput = document.getElementById('sourceGuildId');
+        const targetInput = document.getElementById('targetGuildId');
+        
+        const savedSource = localStorage.getItem('source_guild_id');
+        const savedTarget = localStorage.getItem('target_guild_id');
+        
+        if (savedSource) sourceInput.value = savedSource;
+        if (savedTarget) targetInput.value = savedTarget;
+        
+        sourceInput.addEventListener('input', () => {
+            localStorage.setItem('source_guild_id', sourceInput.value);
+        });
+        
+        targetInput.addEventListener('input', () => {
+            localStorage.setItem('target_guild_id', targetInput.value);
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                startCloning();
+            }
+            if (e.key === 'Escape' && isCloning) {
+                stopCloning();
+            }
+        });
+
+        // Sample logs for demonstration
+        setTimeout(() => {
+            addLog('💡 Tip: Make sure you have Admin permissions in target server', 'info');
+            addLog('💡 Tip: Enable Developer Mode in Discord for Copy ID option', 'info');
+        }, 1000);
+    </script>
+</body>
+</html>
