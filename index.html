@@ -4,684 +4,312 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord Server Cloner</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-            padding: 20px;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1rem;
-        }
-
-        .card {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 25px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: all 0.3s;
-            background: #f8f9fa;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            background: white;
-        }
-
-        .info-text {
-            font-size: 0.85rem;
-            color: #666;
-            margin-top: 6px;
-            display: block;
-        }
-
-        .btn {
-            padding: 16px 32px;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            width: 100%;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(244, 67, 54, 0.3);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border-left: 4px solid #f44336;
-        }
-
-        .status-indicator.active {
-            border-left-color: #4CAF50;
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #f44336;
-        }
-
-        .status-dot.active {
-            background: #4CAF50;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .log-container {
-            background: #1a1a1a;
-            border-radius: 10px;
-            padding: 20px;
-            height: 300px;
-            overflow-y: auto;
-            font-family: 'Consolas', 'Monaco', monospace;
-            color: #fff;
-            margin-top: 20px;
-        }
-
-        .log-entry {
-            padding: 8px 0;
-            border-bottom: 1px solid #333;
-            word-wrap: break-word;
-            line-height: 1.4;
-        }
-
-        .log-success { color: #4CAF50; }
-        .log-error { color: #f44336; }
-        .log-warning { color: #ff9800; }
-        .log-info { color: #2196F3; }
-        .log-system { color: #9C27B0; }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .stat-card {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            border: 1px solid #e0e0e0;
-        }
-
-        .stat-value {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .stat-label {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 10px;
-            color: white;
-            font-weight: 500;
-            opacity: 0;
-            transform: translateX(100px);
-            transition: all 0.3s;
-            z-index: 1000;
-        }
-
-        .notification.show {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        .notification.success {
-            background: #4CAF50;
-        }
-
-        .notification.error {
-            background: #f44336;
-        }
-
-        .notification.warning {
-            background: #ff9800;
-        }
-
-        .loader {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .settings-toggle {
-            text-align: right;
-            margin-bottom: 15px;
-        }
-
-        .settings-btn {
-            background: none;
-            border: none;
-            color: #667eea;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-
-        .advanced-settings {
-            display: none;
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 15px;
-        }
-
-        .advanced-settings.show {
-            display: block;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
+        <!-- Header Section -->
         <div class="header">
-            <h1>🚀 Discord Server Cloner</h1>
-            <p>Clone Discord servers quickly and efficiently</p>
+            <div class="logo">
+                <i class="fas fa-server"></i>
+                <h1>Discord Server Cloner</h1>
+            </div>
+            <p class="subtitle">Clone Discord servers with advanced auto-reconnect features</p>
         </div>
 
-        <div class="card">
-            <div class="settings-toggle">
-                <button class="settings-btn" onclick="toggleSettings()">⚙️ Advanced Settings</button>
+        <!-- Main Control Card -->
+        <div class="card main-card">
+            <div class="card-header">
+                <h2><i class="fas fa-cogs"></i> Control Panel</h2>
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span class="status-text" id="statusText">Ready</span>
+                </div>
             </div>
 
-            <div class="advanced-settings" id="advancedSettings">
-                <div class="form-group">
-                    <label>⚡ Auto-Reconnect Settings</label>
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <label style="display: flex; align-items: center; gap: 5px;">
-                            <input type="checkbox" id="autoReconnect" checked>
-                            Enable Auto-Reconnect
+            <div class="card-body">
+                <!-- Connection Settings -->
+                <div class="settings-section">
+                    <h3><i class="fas fa-user-lock"></i> Discord Credentials</h3>
+                    <div class="form-group">
+                        <label for="token">
+                            <i class="fas fa-key"></i> Discord Token
+                            <span class="info-icon" title="Get token from: F12 → Application → Local Storage → token">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: 5px;">
-                            <input type="checkbox" id="skipEmojis">
-                            Skip Emojis
-                        </label>
+                        <div class="input-group">
+                            <input type="password" id="token" class="form-control" 
+                                   placeholder="Enter your Discord token">
+                            <button class="input-action" onclick="toggleTokenVisibility()">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <small class="hint">Keep this private! Never share your token.</small>
+                    </div>
+                </div>
+
+                <!-- Server Settings -->
+                <div class="settings-section">
+                    <h3><i class="fas fa-exchange-alt"></i> Server Configuration</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="sourceGuildId">
+                                <i class="fas fa-download"></i> Source Server ID
+                            </label>
+                            <input type="text" id="sourceGuildId" class="form-control" 
+                                   placeholder="Server ID to clone from">
+                        </div>
+                        <div class="form-group">
+                            <label for="targetGuildId">
+                                <i class="fas fa-upload"></i> Target Server ID
+                            </label>
+                            <input type="text" id="targetGuildId" class="form-control" 
+                                   placeholder="Server ID to clone to">
+                        </div>
+                    </div>
+                    <small class="hint">Right-click server → Copy ID (Developer Mode must be ON)</small>
+                </div>
+
+                <!-- Advanced Settings -->
+                <div class="settings-section">
+                    <div class="settings-header" onclick="toggleAdvancedSettings()">
+                        <h3><i class="fas fa-sliders-h"></i> Advanced Settings</h3>
+                        <i class="fas fa-chevron-down" id="settingsArrow"></i>
+                    </div>
+                    <div class="advanced-settings" id="advancedSettings">
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="autoReconnect" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Auto-Reconnect on Slow Connection</span>
+                            </label>
+                            <small class="hint">Automatically reconnect if cloning takes too long</small>
+                        </div>
+
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="skipEmojis">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Skip Emojis</span>
+                            </label>
+                            <small class="hint">Skip emoji cloning to speed up the process</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reconnectAttempts">
+                                <i class="fas fa-redo"></i> Max Reconnect Attempts
+                            </label>
+                            <input type="range" id="reconnectAttempts" min="1" max="10" value="3" 
+                                   oninput="updateReconnectValue(this.value)">
+                            <div class="range-value">
+                                <span id="reconnectValue">3</span> attempts
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="slowThreshold">
+                                <i class="fas fa-hourglass-half"></i> Slow Threshold (seconds)
+                            </label>
+                            <input type="range" id="slowThreshold" min="10" max="120" value="30" 
+                                   oninput="updateSlowThresholdValue(this.value)">
+                            <div class="range-value">
+                                <span id="slowThresholdValue">30</span> seconds
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn-success" id="startBtn" onclick="startCloning()">
+                        <i class="fas fa-play"></i> START CLONING
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearLogs()">
+                        <i class="fas fa-broom"></i> Clear Logs
+                    </button>
+                    <button class="btn btn-help" onclick="showHelp()">
+                        <i class="fas fa-question-circle"></i> Help
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Card -->
+        <div class="card stats-card">
+            <div class="card-header">
+                <h2><i class="fas fa-chart-bar"></i> Live Statistics</h2>
+                <div class="refresh-time" id="refreshTime">Last update: Never</div>
+            </div>
+            <div class="card-body">
+                <div class="stats-grid" id="statsContainer">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="rolesStat">0</div>
+                            <div class="stat-label">Roles Created</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-hashtag"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="channelsStat">0</div>
+                            <div class="stat-label">Channels Created</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-smile"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="emojisStat">0</div>
+                            <div class="stat-label">Emojis Created</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-sync-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="reconnectsStat">0</div>
+                            <div class="stat-label">Reconnects</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="speedStat">0</div>
+                            <div class="stat-label">Items/Min</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="errorsStat">0</div>
+                            <div class="stat-label">Errors</div>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <div class="status-indicator" id="statusIndicator">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Ready to start cloning</span>
-            </div>
-
-            <div class="form-group">
-                <label for="token">🔑 Discord Token</label>
-                <input type="password" id="token" class="form-control" placeholder="Enter your Discord token">
-                <span class="info-text">Get token from: F12 → Application → Local Storage → token</span>
-            </div>
-
-            <div class="form-group">
-                <label for="sourceGuildId">📤 Source Server ID</label>
-                <input type="text" id="sourceGuildId" class="form-control" placeholder="Source server ID">
-                <span class="info-text">Right-click server → Copy ID (Developer Mode must be ON)</span>
-            </div>
-
-            <div class="form-group">
-                <label for="targetGuildId">📥 Target Server ID</label>
-                <input type="text" id="targetGuildId" class="form-control" placeholder="Target server ID">
-                <span class="info-text">You need Admin permissions in target server</span>
-            </div>
-
-            <button class="btn btn-primary" id="startBtn" onclick="startCloning()">
-                <span>🚀 START CLONING</span>
-            </button>
         </div>
 
-        <div class="card">
-            <h3 style="margin-bottom: 20px; color: #333;">📊 Cloning Statistics</h3>
-            <div class="stats" id="statsContainer">
-                <div class="stat-card">
-                    <div class="stat-value" id="rolesStat">0</div>
-                    <div class="stat-label">Roles Created</div>
+        <!-- Logs Card -->
+        <div class="card logs-card">
+            <div class="card-header">
+                <h2><i class="fas fa-terminal"></i> Live Logs</h2>
+                <div class="log-controls">
+                    <button class="btn-icon" onclick="toggleAutoScroll()" title="Toggle auto-scroll">
+                        <i class="fas fa-arrow-down" id="scrollIcon"></i>
+                    </button>
+                    <button class="btn-icon" onclick="exportLogs()" title="Export logs">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="btn-icon" onclick="filterLogs()" title="Filter logs">
+                        <i class="fas fa-filter"></i>
+                    </button>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="channelsStat">0</div>
-                    <div class="stat-label">Channels Created</div>
+            </div>
+            <div class="card-body">
+                <div class="log-filters" id="logFilters">
+                    <label class="filter-option">
+                        <input type="checkbox" checked onclick="toggleLogType('info')">
+                        <span class="filter-badge info">Info</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" checked onclick="toggleLogType('success')">
+                        <span class="filter-badge success">Success</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" checked onclick="toggleLogType('warning')">
+                        <span class="filter-badge warning">Warning</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" checked onclick="toggleLogType('error')">
+                        <span class="filter-badge error">Error</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="checkbox" checked onclick="toggleLogType('system')">
+                        <span class="filter-badge system">System</span>
+                    </label>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="emojisStat">0</div>
-                    <div class="stat-label">Emojis Created</div>
+                <div class="log-container" id="logContainer">
+                    <!-- Logs will be inserted here -->
+                    <div class="log-entry log-system">
+                        <span class="log-time">[12:00:00]</span>
+                        <span class="log-content">System initialized. Enter your credentials to start cloning.</span>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="reconnectsStat">0</div>
-                    <div class="stat-label">Reconnects</div>
+                <div class="log-info">
+                    <span id="logCount">1 log entry</span>
+                    <span class="log-size" id="logSize">1 KB</span>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <h3 style="margin-bottom: 20px; color: #333;">📝 Live Logs</h3>
-            <div class="log-container" id="logContainer">
-                <div class="log-entry log-system">System ready. Enter your credentials above to start.</div>
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4><i class="fas fa-shield-alt"></i> Security Notice</h4>
+                    <p>Never share your Discord token. This tool is for personal use only.</p>
+                </div>
+                <div class="footer-section">
+                    <h4><i class="fas fa-code"></i> Version</h4>
+                    <p>v1.0.0 • Auto-Reconnect Enabled • Made with ❤️</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="notification" id="notification"></div>
+    <!-- Notification Toast -->
+    <div class="toast" id="toast"></div>
 
-    <script>
-        let isCloning = false;
-        let reconnectAttempts = 0;
-        const MAX_RECONNECT_ATTEMPTS = 3;
-        const SLOW_THRESHOLD = 30000; // 30 seconds
-        let lastActivityTime = Date.now();
-        let slowDetectionInterval = null;
+    <!-- Help Modal -->
+    <div class="modal" id="helpModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-question-circle"></i> Help Guide</h2>
+                <button class="close-modal" onclick="closeHelp()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section">
+                    <h3><i class="fas fa-key"></i> Getting Your Token</h3>
+                    <p>1. Open Discord in your browser</p>
+                    <p>2. Press <code>F12</code> to open Developer Tools</p>
+                    <p>3. Go to <code>Application</code> → <code>Local Storage</code></p>
+                    <p>4. Find and copy the <code>token</code> value</p>
+                </div>
+                <div class="help-section">
+                    <h3><i class="fas fa-id-card"></i> Getting Server IDs</h3>
+                    <p>1. Open Discord Settings</p>
+                    <p>2. Go to <code>Advanced</code> → Enable <code>Developer Mode</code></p>
+                    <p>3. Right-click on any server → <code>Copy ID</code></p>
+                </div>
+                <div class="help-section">
+                    <h3><i class="fas fa-bolt"></i> Auto-Reconnect Feature</h3>
+                    <p>• Automatically reconnects if cloning slows down</p>
+                    <p>• Resumes from where it left off</p>
+                    <p>• Adjustable threshold and retry attempts</p>
+                </div>
+                <div class="help-section">
+                    <h3><i class="fas fa-keyboard"></i> Keyboard Shortcuts</h3>
+                    <p><code>Ctrl + Enter</code> - Start/Stop cloning</p>
+                    <p><code>Ctrl + L</code> - Clear logs</p>
+                    <p><code>Ctrl + S</code> - Save settings</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.add('show');
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-
-        function addLog(message, type = 'info') {
-            const logContainer = document.getElementById('logContainer');
-            const logEntry = document.createElement('div');
-            logEntry.className = `log-entry log-${type}`;
-            
-            const time = new Date().toLocaleTimeString();
-            logEntry.innerHTML = `<span style="color: #666;">[${time}]</span> ${message}`;
-            
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
-
-        function updateStatus(status, isActive = false) {
-            const statusIndicator = document.getElementById('statusIndicator');
-            const statusDot = document.getElementById('statusDot');
-            const statusText = document.getElementById('statusText');
-            
-            statusText.textContent = status;
-            
-            if (isActive) {
-                statusIndicator.classList.add('active');
-                statusDot.classList.add('active');
-            } else {
-                statusIndicator.classList.remove('active');
-                statusDot.classList.remove('active');
-            }
-        }
-
-        function updateStat(statId, value) {
-            const element = document.getElementById(statId);
-            if (element) {
-                element.textContent = value;
-                
-                // Add animation
-                element.style.transform = 'scale(1.2)';
-                setTimeout(() => {
-                    element.style.transform = 'scale(1)';
-                }, 300);
-            }
-        }
-
-        function startCloning() {
-            const token = document.getElementById('token').value.trim();
-            const sourceGuildId = document.getElementById('sourceGuildId').value.trim();
-            const targetGuildId = document.getElementById('targetGuildId').value.trim();
-            const autoReconnect = document.getElementById('autoReconnect').checked;
-            const skipEmojis = document.getElementById('skipEmojis').checked;
-            
-            if (!token || !sourceGuildId || !targetGuildId) {
-                showNotification('Please fill in all required fields!', 'error');
-                return;
-            }
-
-            if (isCloning) {
-                stopCloning();
-                return;
-            }
-
-            // Reset stats
-            updateStat('rolesStat', '0');
-            updateStat('channelsStat', '0');
-            updateStat('emojisStat', '0');
-            updateStat('reconnectsStat', '0');
-            
-            isCloning = true;
-            reconnectAttempts = 0;
-            lastActivityTime = Date.now();
-            
-            // Update UI
-            const startBtn = document.getElementById('startBtn');
-            startBtn.innerHTML = '<span class="loader"></span> STOP CLONING';
-            startBtn.classList.remove('btn-primary');
-            startBtn.classList.add('btn-danger');
-            
-            updateStatus('Starting cloning process...', true);
-            
-            // Start slow detection
-            if (autoReconnect) {
-                startSlowDetection();
-            }
-            
-            // Clear logs
-            document.getElementById('logContainer').innerHTML = '';
-            addLog('🚀 Starting cloning process...', 'system');
-            addLog(`Source Server ID: ${sourceGuildId}`, 'info');
-            addLog(`Target Server ID: ${targetGuildId}`, 'info');
-            addLog(`Auto-reconnect: ${autoReconnect ? 'Enabled' : 'Disabled'}`, 'info');
-            
-            // Simulate cloning process (in real implementation, this would connect to backend)
-            simulateCloningProcess(token, sourceGuildId, targetGuildId, autoReconnect, skipEmojis);
-        }
-
-        function stopCloning() {
-            isCloning = false;
-            
-            // Update UI
-            const startBtn = document.getElementById('startBtn');
-            startBtn.innerHTML = '🚀 START CLONING';
-            startBtn.classList.remove('btn-danger');
-            startBtn.classList.add('btn-primary');
-            
-            updateStatus('Cloning stopped by user');
-            addLog('🛑 Cloning stopped by user', 'warning');
-            
-            // Stop slow detection
-            stopSlowDetection();
-            
-            showNotification('Cloning stopped', 'warning');
-        }
-
-        function simulateCloningProcess(token, sourceGuildId, targetGuildId, autoReconnect, skipEmojis) {
-            // This is a simulation - in real implementation, this would be actual Discord API calls
-            let progress = 0;
-            const totalSteps = skipEmojis ? 5 : 8;
-            
-            const steps = [
-                { name: 'Connecting to Discord...', delay: 1000 },
-                { name: 'Deleting existing content...', delay: 2000 },
-                { name: 'Cloning roles...', delay: 3000 },
-                { name: 'Cloning categories...', delay: 2000 },
-                { name: 'Cloning channels...', delay: 4000 },
-                ...(!skipEmojis ? [{ name: 'Cloning emojis...', delay: 5000 }] : []),
-                { name: 'Updating server info...', delay: 1000 },
-                { name: 'Finalizing...', delay: 1500 }
-            ];
-            
-            function processStep(index) {
-                if (!isCloning || index >= steps.length) {
-                    if (isCloning) {
-                        finishCloning();
-                    }
-                    return;
-                }
-                
-                const step = steps[index];
-                updateActivity();
-                
-                // Simulate step with random success/failure
-                const success = Math.random() > 0.1; // 90% success rate
-                
-                setTimeout(() => {
-                    if (!isCloning) return;
-                    
-                    progress++;
-                    
-                    if (success) {
-                        addLog(`✅ ${step.name}`, 'success');
-                        
-                        // Update stats based on step
-                        if (step.name.includes('roles')) {
-                            const roles = Math.floor(Math.random() * 10) + 5;
-                            updateStat('rolesStat', roles);
-                        } else if (step.name.includes('channels')) {
-                            const channels = Math.floor(Math.random() * 15) + 8;
-                            updateStat('channelsStat', channels);
-                        } else if (step.name.includes('emojis')) {
-                            const emojis = Math.floor(Math.random() * 20) + 10;
-                            updateStat('emojisStat', emojis);
-                        }
-                        
-                        // Check for slowdown
-                        if (autoReconnect && isSlow() && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                            reconnect();
-                        } else {
-                            processStep(index + 1);
-                        }
-                    } else {
-                        addLog(`❌ Failed: ${step.name}`, 'error');
-                        
-                        // Retry logic
-                        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                            addLog('🔄 Retrying step...', 'warning');
-                            setTimeout(() => processStep(index), 2000);
-                        } else {
-                            addLog('❌ Maximum retry attempts reached', 'error');
-                            stopCloning();
-                        }
-                    }
-                }, step.delay);
-            }
-            
-            processStep(0);
-        }
-
-        function finishCloning() {
-            isCloning = false;
-            
-            // Update UI
-            const startBtn = document.getElementById('startBtn');
-            startBtn.innerHTML = '🚀 START CLONING';
-            startBtn.classList.remove('btn-danger');
-            startBtn.classList.add('btn-primary');
-            
-            updateStatus('Cloning completed successfully!');
-            addLog('🎉 Server cloning completed successfully!', 'success');
-            
-            // Stop slow detection
-            stopSlowDetection();
-            
-            showNotification('Cloning completed successfully!', 'success');
-        }
-
-        function updateActivity() {
-            lastActivityTime = Date.now();
-        }
-
-        function isSlow() {
-            const timeSinceLastActivity = Date.now() - lastActivityTime;
-            return timeSinceLastActivity > SLOW_THRESHOLD;
-        }
-
-        function startSlowDetection() {
-            slowDetectionInterval = setInterval(() => {
-                if (isCloning && isSlow() && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                    reconnect();
-                }
-            }, 5000); // Check every 5 seconds
-        }
-
-        function stopSlowDetection() {
-            if (slowDetectionInterval) {
-                clearInterval(slowDetectionInterval);
-                slowDetectionInterval = null;
-            }
-        }
-
-        function reconnect() {
-            reconnectAttempts++;
-            updateStat('reconnectsStat', reconnectAttempts);
-            
-            addLog(`⚡ Slow operation detected. Reconnecting... (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`, 'warning');
-            updateActivity();
-            
-            // Simulate reconnection delay
-            setTimeout(() => {
-                addLog('✅ Reconnected successfully! Resuming...', 'success');
-            }, 2000);
-        }
-
-        function toggleSettings() {
-            const settings = document.getElementById('advancedSettings');
-            settings.classList.toggle('show');
-        }
-
-        // Initialize
-        updateStatus('Ready to start cloning');
-        addLog('System initialized. Enter your Discord token and server IDs to begin.', 'system');
-
-        // Auto-save token to localStorage
-        const tokenInput = document.getElementById('token');
-        const savedToken = localStorage.getItem('discord_token');
-        if (savedToken) {
-            tokenInput.value = savedToken;
-        }
-
-        tokenInput.addEventListener('input', () => {
-            localStorage.setItem('discord_token', tokenInput.value);
-        });
-
-        // Auto-save server IDs
-        const sourceInput = document.getElementById('sourceGuildId');
-        const targetInput = document.getElementById('targetGuildId');
-        
-        const savedSource = localStorage.getItem('source_guild_id');
-        const savedTarget = localStorage.getItem('target_guild_id');
-        
-        if (savedSource) sourceInput.value = savedSource;
-        if (savedTarget) targetInput.value = savedTarget;
-        
-        sourceInput.addEventListener('input', () => {
-            localStorage.setItem('source_guild_id', sourceInput.value);
-        });
-        
-        targetInput.addEventListener('input', () => {
-            localStorage.setItem('target_guild_id', targetInput.value);
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                startCloning();
-            }
-            if (e.key === 'Escape' && isCloning) {
-                stopCloning();
-            }
-        });
-
-        // Sample logs for demonstration
-        setTimeout(() => {
-            addLog('💡 Tip: Make sure you have Admin permissions in target server', 'info');
-            addLog('💡 Tip: Enable Developer Mode in Discord for Copy ID option', 'info');
-        }, 1000);
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
