@@ -1,32 +1,6 @@
 require('dotenv').config();
-const { Client, Intents, MessageEmbed, MessageActionRow, MessageButton, MessageSelectMenu } = require('discord.js');
+const { Client } = require('discord.js-selfbot-v13');
 const https = require('https');
-
-// ====== Configuration ======
-const CONFIG = {
-    BOT_TOKEN: process.env.BOT_TOKEN,
-    ALLOWED_USER_IDS: (process.env.ALLOWED_USER_IDS || '').split(',').map(id => id.trim()),
-    AUTO_RECONNECT: true,
-    MAX_RECONNECT_ATTEMPTS: 3,
-    SLOW_THRESHOLD: 30000,
-    RECONNECT_DELAY: 5000,
-    EMOJI_DELAY: 2000,
-    OPERATION_DELAY: 200
-};
-
-// ====== Check Environment Variables ======
-if (!CONFIG.BOT_TOKEN) {
-    console.error('❌ BOT_TOKEN is not set in environment variables!');
-    console.info('📝 Please set BOT_TOKEN in GitHub Secrets');
-    console.info('🔧 Get bot token from: https://discord.com/developers/applications');
-    process.exit(1);
-}
-
-if (!CONFIG.ALLOWED_USER_IDS || CONFIG.ALLOWED_USER_IDS.length === 0 || CONFIG.ALLOWED_USER_IDS[0] === '') {
-    console.error('❌ ALLOWED_USER_IDS is not set!');
-    console.info('📝 Please set ALLOWED_USER_IDS in GitHub Secrets (comma separated user IDs)');
-    process.exit(1);
-}
 
 // ====== Colors for Console ======
 const colors = {
@@ -49,14 +23,41 @@ const log = {
     header: (msg) => console.log(`${colors.magenta}${msg}${colors.reset}`)
 };
 
+// ====== Configuration ======
+const CONFIG = {
+    TOKEN: process.env.TOKEN || process.env.DISCORD_TOKEN,
+    ALLOWED_USER_IDS: (process.env.ALLOWED_USER_IDS || '').split(',').map(id => id.trim()),
+    AUTO_RECONNECT: true,
+    MAX_RECONNECT_ATTEMPTS: 3,
+    SLOW_THRESHOLD: 30000,
+    RECONNECT_DELAY: 5000,
+    EMOJI_DELAY: 2000,
+    OPERATION_DELAY: 200
+};
+
+// ====== Check Environment Variables ======
+if (!CONFIG.TOKEN) {
+    log.error('❌ TOKEN is not set in environment variables!');
+    log.info('📝 Please set TOKEN or DISCORD_TOKEN in GitHub Secrets');
+    log.info('🔧 Go to: Repository Settings → Secrets and variables → Actions');
+    process.exit(1);
+}
+
+if (!CONFIG.ALLOWED_USER_IDS || CONFIG.ALLOWED_USER_IDS.length === 0 || CONFIG.ALLOWED_USER_IDS[0] === '') {
+    log.error('❌ ALLOWED_USER_IDS is not set!');
+    log.info('📝 Please set ALLOWED_USER_IDS in GitHub Secrets (comma separated)');
+    log.info('👤 Example: 123456789012345678,987654321098765432');
+    process.exit(1);
+}
+
 // ====== Banner ======
 log.header(`
 ╔══════════════════════════════════════════╗
-║     DISCORD SERVER CLONER BOT           ║
-║      with Interactive Menu              ║
+║   DISCORD SERVER CLONER BOT              ║
+║     Version: discord.js-selfbot-v13@1.3.0║
 ╚══════════════════════════════════════════╝`);
 
-log.info(`✅ Bot token loaded: ${CONFIG.BOT_TOKEN.substring(0, 10)}...`);
+log.info(`✅ Token loaded: ${CONFIG.TOKEN.substring(0, 10)}...`);
 log.info(`✅ Allowed users: ${CONFIG.ALLOWED_USER_IDS.join(', ')}`);
 
 // ====== Helper Functions ======
@@ -64,7 +65,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function downloadImage(url) {
     return new Promise((resolve, reject) => {
-        const req = https.get(url, (res) => {
+        https.get(url, (res) => {
             if (res.statusCode !== 200) {
                 reject(new Error(`HTTP ${res.statusCode}`));
                 return;
@@ -79,60 +80,106 @@ async function downloadImage(url) {
                 resolve(`data:${mimeType};base64,${base64}`);
             });
             res.on('error', reject);
-        });
-        
-        req.setTimeout(15000, () => {
-            req.destroy();
-            reject(new Error('Download timeout'));
-        });
-        
-        req.on('error', reject);
+        }).on('error', reject);
     });
 }
 
-// ====== Discord Client Setup ======
-const client = new Client({
-    intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.DIRECT_MESSAGES,
-        Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
-        Intents.FLAGS.GUILD_INVITES
-    ],
-    partials: ['CHANNEL', 'MESSAGE', 'REACTION']
-});
+// ====== Connection Manager ======
+class ConnectionManager {
+    constructor(client) {
+        this.client = client;
+        this.reconnectAttempts = 0;
+        this.lastActivityTime = Date.now();
+        this.slowDetectionInterval = null;
+        this.isReconnecting = false;
+    }
 
-// ====== Store for Active Cloning Operations ======
-const activeOperations = new Map(); // userID -> { state, data, logChannel, logs }
+    updateActivity() {
+        this.lastActivityTime = Date.now();
+    }
 
-// ====== Discord Selfbot Module (Will be loaded dynamically) ======
-let DiscordSelfbot;
-try {
-    DiscordSelfbot = require('discord.js-selfbot-v13');
-    log.success('✅ Selfbot module loaded successfully');
-} catch (error) {
-    log.error('❌ Failed to load selfbot module. Make sure discord.js-selfbot-v13 is installed.');
-    log.info('📦 Run: npm install discord.js-selfbot-v13');
-    process.exit(1);
+    isSlow() {
+        return Date.now() - this.lastActivityTime > CONFIG.SLOW_THRESHOLD;
+    }
+
+    async reconnect() {
+        if (this.isReconnecting || this.reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
+            return false;
+        }
+
+        this.isReconnecting = true;
+        this.reconnectAttempts++;
+
+        log.warning(`🔄 Reconnecting... (${this.reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS})`);
+
+        try {
+            // Destroy current client
+            this.client.destroy();
+            await delay(CONFIG.RECONNECT_DELAY);
+            
+            // Create new client
+            const newClient = new Client();
+            
+            // Set up event listeners for new client
+            setupClientEvents(newClient);
+            
+            // Login
+            await newClient.login(CONFIG.TOKEN);
+            
+            log.success('✅ Reconnected successfully!');
+            this.client = newClient;
+            this.reconnectAttempts = 0;
+            this.isReconnecting = false;
+            
+            return true;
+        } catch (error) {
+            log.error(`❌ Reconnect failed: ${error.message}`);
+            this.isReconnecting = false;
+            return false;
+        }
+    }
+
+    startSlowDetection(callback) {
+        if (this.slowDetectionInterval) {
+            clearInterval(this.slowDetectionInterval);
+        }
+
+        this.slowDetectionInterval = setInterval(() => {
+            if (CONFIG.AUTO_RECONNECT && this.isSlow() && !this.isReconnecting) {
+                log.warning('⚡ Slow operation detected, reconnecting...');
+                this.reconnect().then(success => {
+                    if (success && callback) {
+                        callback();
+                    }
+                });
+            }
+        }, 10000);
+    }
+
+    stopSlowDetection() {
+        if (this.slowDetectionInterval) {
+            clearInterval(this.slowDetectionInterval);
+            this.slowDetectionInterval = null;
+        }
+    }
 }
 
-// ====== Server Cloner Class ======
+// ====== Server Cloner ======
 class ServerCloner {
-    constructor(selfbotClient, connectionManager) {
-        this.selfbotClient = selfbotClient;
+    constructor(client, connectionManager) {
+        this.client = client;
         this.connectionManager = connectionManager;
         this.roleMapping = new Map();
         this.stats = {
-            roles: 0,
-            categories: 0,
-            channels: 0,
-            emojis: 0,
+            rolesCreated: 0,
+            categoriesCreated: 0,
+            channelsCreated: 0,
+            emojisCreated: 0,
             reconnects: 0,
             failed: 0
         };
         this.isCloning = false;
-        this.logChannel = null;
-        this.userId = null;
+        this.currentOperation = null;
     }
 
     async safeOperation(operation, description) {
@@ -142,12 +189,7 @@ class ServerCloner {
         while (attempts < maxAttempts) {
             try {
                 this.connectionManager.updateActivity();
-                const result = await Promise.race([
-                    operation(),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Operation timeout')), 60000)
-                    )
-                ]);
+                const result = await operation();
                 this.connectionManager.updateActivity();
                 return result;
             } catch (error) {
@@ -157,18 +199,16 @@ class ServerCloner {
                     throw error;
                 }
                 
-                if (error.message.includes('timeout') || error.message.includes('rate limit') || 
-                    error.message.includes('slow') || error.message.includes('ECONNRESET')) {
-                    
-                    this.addLog(`🔄 Retrying ${description} (${attempts}/${maxAttempts})...`);
+                if (error.message.includes('rate limit') || error.message.includes('timeout') || error.message.includes('slow')) {
+                    log.warning(`🔄 Retrying ${description} (${attempts}/${maxAttempts})...`);
                     
                     if (attempts === 2 && CONFIG.AUTO_RECONNECT) {
-                        this.addLog('⚡ Auto-reconnecting to improve speed...');
+                        log.warning('⚡ Reconnecting to improve speed...');
                         await this.connectionManager.reconnect();
                         this.stats.reconnects++;
                     }
                     
-                    await delay(2000 * attempts);
+                    await delay(1000 * attempts);
                 } else {
                     throw error;
                 }
@@ -176,7 +216,7 @@ class ServerCloner {
         }
     }
 
-    async cloneServer(sourceGuildId, targetGuildId, cloneEmojis = true) {
+    async cloneServer(sourceGuildId, targetGuildId, cloneEmojis = true, progressChannel = null) {
         if (this.isCloning) {
             throw new Error('Already cloning a server!');
         }
@@ -184,50 +224,50 @@ class ServerCloner {
         this.isCloning = true;
         this.connectionManager.startSlowDetection(() => {
             this.stats.reconnects++;
-            this.addLog('🔄 Auto-reconnected to improve speed');
+            this.sendProgress('🔄 Auto-reconnected to improve speed', progressChannel);
         });
 
         try {
-            const sourceGuild = this.selfbotClient.guilds.cache.get(sourceGuildId);
-            const targetGuild = this.selfbotClient.guilds.cache.get(targetGuildId);
+            const sourceGuild = this.client.guilds.cache.get(sourceGuildId);
+            const targetGuild = this.client.guilds.cache.get(targetGuildId);
 
             if (!sourceGuild) {
-                throw new Error('Source server not found! Make sure you are a member.');
+                throw new Error('Source server not found! Make sure you are in the server.');
             }
 
             if (!targetGuild) {
-                throw new Error('Target server not found! Make sure you are a member with Admin permissions.');
+                throw new Error('Target server not found! Make sure you are in the server and have Admin permissions.');
             }
 
-            this.addLog(`🚀 Starting clone: **${sourceGuild.name}** → **${targetGuild.name}**`);
-            this.addLog('⏳ This may take several minutes...');
+            this.sendProgress(`🚀 Starting clone: ${sourceGuild.name} → ${targetGuild.name}`, progressChannel);
+            this.sendProgress('⏳ This may take several minutes...', progressChannel);
 
             // Delete existing content
-            await this.deleteExistingContent(targetGuild);
+            await this.deleteExistingContent(targetGuild, progressChannel);
             
             // Clone roles
-            await this.cloneRoles(sourceGuild, targetGuild);
+            await this.cloneRoles(sourceGuild, targetGuild, progressChannel);
             
             // Clone categories
-            await this.cloneCategories(sourceGuild, targetGuild);
+            await this.cloneCategories(sourceGuild, targetGuild, progressChannel);
             
             // Clone channels
-            await this.cloneChannels(sourceGuild, targetGuild);
+            await this.cloneChannels(sourceGuild, targetGuild, progressChannel);
             
             // Clone emojis
             if (cloneEmojis) {
-                await this.cloneEmojis(sourceGuild, targetGuild);
+                await this.cloneEmojis(sourceGuild, targetGuild, progressChannel);
             }
             
             // Clone server settings
-            await this.cloneServerSettings(sourceGuild, targetGuild);
+            await this.cloneServerSettings(sourceGuild, targetGuild, progressChannel);
 
             // Show statistics
-            this.showStats();
-            this.addLog('🎉 **Server cloned successfully!**');
+            this.showStatistics(progressChannel);
+            this.sendProgress('🎉 Server cloned successfully!', progressChannel);
 
         } catch (error) {
-            this.addLog(`❌ **Clone failed:** ${error.message}`);
+            this.sendProgress(`❌ Clone failed: ${error.message}`, progressChannel);
             throw error;
         } finally {
             this.isCloning = false;
@@ -235,8 +275,9 @@ class ServerCloner {
         }
     }
 
-    async deleteExistingContent(guild) {
-        this.addLog('🗑️  Deleting existing channels and roles...');
+    async deleteExistingContent(guild, progressChannel) {
+        this.currentOperation = 'Deleting existing content';
+        this.sendProgress('🗑️  Deleting existing channels and roles...', progressChannel);
         
         // Delete channels
         const channels = guild.channels.cache.filter(ch => ch.deletable);
@@ -265,11 +306,12 @@ class ServerCloner {
             }
         }
 
-        this.addLog('✅ Cleanup completed');
+        this.sendProgress('✅ Cleanup completed', progressChannel);
     }
 
-    async cloneRoles(sourceGuild, targetGuild) {
-        this.addLog('👑 Cloning roles...');
+    async cloneRoles(sourceGuild, targetGuild, progressChannel) {
+        this.currentOperation = 'Cloning roles';
+        this.sendProgress('👑 Cloning roles...', progressChannel);
         
         const roles = sourceGuild.roles.cache
             .filter(role => role.name !== '@everyone')
@@ -288,22 +330,23 @@ class ServerCloner {
                     });
 
                     this.roleMapping.set(role.id, newRole.id);
-                    this.stats.roles++;
+                    this.stats.rolesCreated++;
                 }, `Create role ${role.name}`);
                 
                 await delay(CONFIG.OPERATION_DELAY);
 
             } catch (error) {
-                this.addLog(`⚠️ Failed role **${role.name}**: ${error.message}`);
+                this.sendProgress(`⚠️ Failed role ${role.name}: ${error.message}`, progressChannel);
                 this.stats.failed++;
             }
         }
 
-        this.addLog(`✅ Created **${this.stats.roles}** roles`);
+        this.sendProgress(`✅ Created ${this.stats.rolesCreated} roles`, progressChannel);
     }
 
-    async cloneCategories(sourceGuild, targetGuild) {
-        this.addLog('📁 Cloning categories...');
+    async cloneCategories(sourceGuild, targetGuild, progressChannel) {
+        this.currentOperation = 'Cloning categories';
+        this.sendProgress('📁 Cloning categories...', progressChannel);
         
         const categories = sourceGuild.channels.cache
             .filter(ch => ch.type === 'GUILD_CATEGORY')
@@ -321,22 +364,23 @@ class ServerCloner {
                         reason: 'Server cloning'
                     });
 
-                    this.stats.categories++;
+                    this.stats.categoriesCreated++;
                 }, `Create category ${category.name}`);
                 
                 await delay(CONFIG.OPERATION_DELAY);
 
             } catch (error) {
-                this.addLog(`⚠️ Failed category **${category.name}**: ${error.message}`);
+                this.sendProgress(`⚠️ Failed category ${category.name}: ${error.message}`, progressChannel);
                 this.stats.failed++;
             }
         }
 
-        this.addLog(`✅ Created **${this.stats.categories}** categories`);
+        this.sendProgress(`✅ Created ${this.stats.categoriesCreated} categories`, progressChannel);
     }
 
-    async cloneChannels(sourceGuild, targetGuild) {
-        this.addLog('💬 Cloning channels...');
+    async cloneChannels(sourceGuild, targetGuild, progressChannel) {
+        this.currentOperation = 'Cloning channels';
+        this.sendProgress('💬 Cloning channels...', progressChannel);
         
         const channels = sourceGuild.channels.cache
             .filter(ch => ch.type === 'GUILD_TEXT' || ch.type === 'GUILD_VOICE')
@@ -368,22 +412,23 @@ class ServerCloner {
                     }
 
                     await targetGuild.channels.create(channel.name, channelOptions);
-                    this.stats.channels++;
+                    this.stats.channelsCreated++;
                 }, `Create channel ${channel.name}`);
                 
                 await delay(CONFIG.OPERATION_DELAY);
 
             } catch (error) {
-                this.addLog(`⚠️ Failed channel **${channel.name}**: ${error.message}`);
+                this.sendProgress(`⚠️ Failed channel ${channel.name}: ${error.message}`, progressChannel);
                 this.stats.failed++;
             }
         }
 
-        this.addLog(`✅ Created **${this.stats.channels}** channels`);
+        this.sendProgress(`✅ Created ${this.stats.channelsCreated} channels`, progressChannel);
     }
 
-    async cloneEmojis(sourceGuild, targetGuild) {
-        this.addLog('😀 Cloning emojis...');
+    async cloneEmojis(sourceGuild, targetGuild, progressChannel) {
+        this.currentOperation = 'Cloning emojis';
+        this.sendProgress('😀 Cloning emojis...', progressChannel);
         
         const emojis = sourceGuild.emojis.cache;
         
@@ -401,23 +446,24 @@ class ServerCloner {
                         reason: 'Server cloning'
                     });
 
-                    this.stats.emojis++;
+                    this.stats.emojisCreated++;
                 }, `Create emoji ${emoji.name}`);
                 
                 await delay(CONFIG.EMOJI_DELAY);
 
             } catch (error) {
-                this.addLog(`⚠️ Failed emoji **${emoji.name}**: ${error.message}`);
+                this.sendProgress(`⚠️ Failed emoji ${emoji.name}: ${error.message}`, progressChannel);
                 this.stats.failed++;
                 continue;
             }
         }
 
-        this.addLog(`✅ Created **${this.stats.emojis}** emojis`);
+        this.sendProgress(`✅ Created ${this.stats.emojisCreated} emojis`, progressChannel);
     }
 
-    async cloneServerSettings(sourceGuild, targetGuild) {
-        this.addLog('⚙️  Cloning server settings...');
+    async cloneServerSettings(sourceGuild, targetGuild, progressChannel) {
+        this.currentOperation = 'Cloning server settings';
+        this.sendProgress('⚙️  Cloning server settings...', progressChannel);
         
         try {
             let iconData = null;
@@ -426,7 +472,7 @@ class ServerCloner {
                 try {
                     iconData = await downloadImage(sourceGuild.iconURL({ format: 'png', size: 1024 }));
                 } catch (error) {
-                    this.addLog('⚠️ Could not download server icon');
+                    this.sendProgress('⚠️ Could not download server icon', progressChannel);
                 }
             }
 
@@ -438,13 +484,13 @@ class ServerCloner {
                 }
             }, 'Update server settings');
 
-            this.addLog(`✅ Updated server name: **${sourceGuild.name}**`);
+            this.sendProgress(`✅ Updated server name: ${sourceGuild.name}`, progressChannel);
             if (iconData) {
-                this.addLog('✅ Updated server icon');
+                this.sendProgress('✅ Updated server icon', progressChannel);
             }
 
         } catch (error) {
-            this.addLog(`⚠️ Failed server settings: ${error.message}`);
+            this.sendProgress(`⚠️ Failed server settings: ${error.message}`, progressChannel);
             this.stats.failed++;
         }
     }
@@ -485,415 +531,320 @@ class ServerCloner {
         return mappedOverwrites;
     }
 
-    showStats() {
-        const total = this.stats.roles + this.stats.categories + 
-                     this.stats.channels + this.stats.emojis;
+    showStatistics(progressChannel) {
+        const total = this.stats.rolesCreated + this.stats.categoriesCreated + 
+                     this.stats.channelsCreated + this.stats.emojisCreated;
         const successRate = total > 0 ? Math.round((total/(total + this.stats.failed)) * 100) : 0;
         
         const statsMessage = `
 📊 **Clone Statistics:**
-✅ Roles: ${this.stats.roles}
-✅ Categories: ${this.stats.categories}
-✅ Channels: ${this.stats.channels}
-✅ Emojis: ${this.stats.emojis}
-🔄 Auto-Reconnects: ${this.stats.reconnects}
+✅ Roles: ${this.stats.rolesCreated}
+✅ Categories: ${this.stats.categoriesCreated}
+✅ Channels: ${this.stats.channelsCreated}
+✅ Emojis: ${this.stats.emojisCreated}
+🔄 Reconnects: ${this.stats.reconnects}
 ❌ Failed: ${this.stats.failed}
 📈 Success Rate: ${successRate}%`;
         
-        this.addLog(statsMessage);
+        this.sendProgress(statsMessage, progressChannel);
     }
-
-    addLog(message) {
-        if (this.logChannel) {
-            // Clean message for Discord
-            const discordMessage = message.replace(/\*\*/g, '**');
-            this.logChannel.send(discordMessage).catch(() => {});
+    
+    sendProgress(message, progressChannel) {
+        this.connectionManager.updateActivity();
+        
+        if (progressChannel) {
+            progressChannel.send(message).catch(() => {});
         }
         
         // Log to console
         const cleanMessage = message.replace(/\*\*/g, '').trim();
         
         if (message.includes('❌') || message.includes('Failed')) {
-            log.error(`[User ${this.userId}] ${cleanMessage}`);
+            log.error(cleanMessage);
         } else if (message.includes('✅') || message.includes('Created') || message.includes('Updated')) {
-            log.success(`[User ${this.userId}] ${cleanMessage}`);
+            log.success(cleanMessage);
         } else if (message.includes('⚠️')) {
-            log.warning(`[User ${this.userId}] ${cleanMessage}`);
+            log.warning(cleanMessage);
         } else {
-            log.info(`[User ${this.userId}] ${cleanMessage}`);
+            log.info(cleanMessage);
         }
     }
 }
 
-// ====== Connection Manager ======
-class ConnectionManager {
-    constructor(selfbotClient) {
-        this.selfbotClient = selfbotClient;
-        this.reconnectAttempts = 0;
-        this.lastActivityTime = Date.now();
-        this.slowDetectionInterval = null;
-        this.isReconnecting = false;
-    }
+// ====== Global Variables ======
+const client = new Client();
+const connectionManager = new ConnectionManager(client);
+const serverCloner = new ServerCloner(client, connectionManager);
 
-    updateActivity() {
-        this.lastActivityTime = Date.now();
-    }
+// Store for user inputs
+const userData = new Map();
 
-    isSlow() {
-        return Date.now() - this.lastActivityTime > CONFIG.SLOW_THRESHOLD;
-    }
+// ====== Setup Client Events ======
+function setupClientEvents(client) {
+    client.on('ready', () => {
+        log.success(`✅ Logged in as ${client.user.tag}`);
+        log.info(`📊 Servers: ${client.guilds.cache.size}`);
+        log.info('🤖 Bot is ready! Use !clone to start cloning');
+    });
 
-    async reconnect() {
-        if (this.isReconnecting || this.reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
-            return false;
-        }
-
-        this.isReconnecting = true;
-        this.reconnectAttempts++;
-
-        log.warning(`🔄 Reconnecting... (${this.reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS})`);
-
-        try {
-            this.selfbotClient.destroy();
-            await delay(CONFIG.RECONNECT_DELAY);
-            
-            // Create new selfbot client
-            const newSelfbotClient = new DiscordSelfbot.Client();
-            await newSelfbotClient.login(this.selfbotClient.token);
-            
-            log.success('✅ Reconnected successfully!');
-            this.selfbotClient = newSelfbotClient;
-            this.reconnectAttempts = 0;
-            this.isReconnecting = false;
-            this.updateActivity();
-            
-            return true;
-        } catch (error) {
-            log.error(`❌ Reconnect failed: ${error.message}`);
-            this.isReconnecting = false;
-            return false;
-        }
-    }
-
-    startSlowDetection(callback) {
-        if (this.slowDetectionInterval) {
-            clearInterval(this.slowDetectionInterval);
-        }
-
-        this.slowDetectionInterval = setInterval(() => {
-            if (CONFIG.AUTO_RECONNECT && this.isSlow() && !this.isReconnecting) {
-                log.warning('⚡ Slow operation detected, auto-reconnecting...');
-                this.reconnect().then(success => {
-                    if (success && callback) {
-                        callback();
-                    }
-                });
-            }
-        }, 10000);
-    }
-
-    stopSlowDetection() {
-        if (this.slowDetectionInterval) {
-            clearInterval(this.slowDetectionInterval);
-            this.slowDetectionInterval = null;
-        }
-    }
-}
-
-// ====== Bot Events ======
-client.on('ready', () => {
-    log.success(`✅ Bot logged in as ${client.user.tag}`);
-    log.info(`📊 Bot is in ${client.guilds.cache.size} servers`);
-    log.info('🤖 Use !clone to start cloning process');
-});
-
-client.on('messageCreate', async (message) => {
-    // Ignore bot messages
-    if (message.author.bot) return;
-    
-    // Check if user is allowed
-    if (!CONFIG.ALLOWED_USER_IDS.includes(message.author.id)) {
-        return;
-    }
-
-    // !clone command - Show menu
-    if (message.content === '!clone') {
-        const userOp = activeOperations.get(message.author.id);
+    client.on('messageCreate', async (message) => {
+        // Ignore bot messages
+        if (message.author.bot) return;
         
-        if (userOp && userOp.state === 'cloning') {
-            message.channel.send('❌ You already have an active cloning operation!');
+        // Check if user is allowed
+        if (!CONFIG.ALLOWED_USER_IDS.includes(message.author.id)) {
             return;
         }
 
-        // Create embed with form
-        const embed = new MessageEmbed()
-            .setColor('#7289da')
-            .setTitle('🚀 Discord Server Cloner')
-            .setDescription('Please fill in the following information to clone a server:')
-            .addFields(
-                { name: '🔑 Selfbot Token', value: 'Your Discord account token (for selfbot)' },
-                { name: '📤 Source Server ID', value: 'The server you want to copy FROM' },
-                { name: '📥 Target Server ID', value: 'The server you want to copy TO' }
-            )
-            .setFooter('⚠️ WARNING: This will delete all content in the target server!')
-            .setTimestamp();
-
-        // Create action rows with buttons
-        const row1 = new MessageActionRow()
-            .addComponents(
-                new MessageButton()
-                    .setCustomId('start_clone')
-                    .setLabel('📝 Start Cloning Process')
-                    .setStyle('PRIMARY')
-            );
-
-        const row2 = new MessageActionRow()
-            .addComponents(
-                new MessageButton()
-                    .setCustomId('cancel_clone')
-                    .setLabel('❌ Cancel')
-                    .setStyle('DANGER')
-            );
-
-        // Send the message
-        const menuMessage = await message.channel.send({
-            embeds: [embed],
-            components: [row1, row2]
-        });
-
-        // Store operation state
-        activeOperations.set(message.author.id, {
-            state: 'awaiting_start',
-            data: {},
-            logChannel: message.channel,
-            logs: [],
-            menuMessage: menuMessage
-        });
-
-        // Create a DM channel for sensitive info
-        try {
-            const dmChannel = await message.author.createDM();
+        // Handle !clone command - Show interactive form
+        if (message.content.startsWith('!clone')) {
+            const userState = userData.get(message.author.id);
             
-            const dmEmbed = new MessageEmbed()
-                .setColor('#ff9900')
-                .setTitle('🔒 Security Notice')
-                .setDescription('For security, please send the following information in this DM:')
-                .addFields(
-                    { name: '1️⃣ Your Discord Token', value: 'Send: `token YOUR_TOKEN_HERE`' },
-                    { name: '2️⃣ Source Server ID', value: 'Send: `source SERVER_ID`' },
-                    { name: '3️⃣ Target Server ID', value: 'Send: `target SERVER_ID`' },
-                    { name: '🔧 Example', value: '```\ntoken abc123...\nsource 1234567890\ntarget 9876543210\n```' }
-                )
-                .setFooter('This information will be deleted after cloning')
-                .setTimestamp();
-
-            dmChannel.send({ embeds: [dmEmbed] });
-            
-            // Update operation with DM channel
-            const op = activeOperations.get(message.author.id);
-            op.dmChannel = dmChannel;
-            activeOperations.set(message.author.id, op);
-            
-        } catch (error) {
-            message.channel.send('❌ Cannot send DM. Please enable DMs from server members.');
-        }
-    }
-
-    // Handle DM messages for cloning data
-    if (message.channel.type === 'DM' && !message.author.bot) {
-        const userOp = activeOperations.get(message.author.id);
-        
-        if (!userOp || userOp.state !== 'awaiting_start') {
-            return;
-        }
-
-        const content = message.content.trim().toLowerCase();
-        
-        if (content.startsWith('token ')) {
-            const token = message.content.slice(6).trim();
-            userOp.data.token = token;
-            message.channel.send('✅ Token received! Now send source server ID: `source SERVER_ID`');
-        } 
-        else if (content.startsWith('source ')) {
-            const sourceId = message.content.slice(7).trim();
-            if (!/^\d+$/.test(sourceId)) {
-                message.channel.send('❌ Invalid server ID! Must be numbers only.');
+            if (userState && userState.step) {
+                message.channel.send('❌ You already have an active cloning process!');
                 return;
             }
-            userOp.data.sourceId = sourceId;
-            message.channel.send('✅ Source server ID received! Now send target server ID: `target SERVER_ID`');
-        } 
-        else if (content.startsWith('target ')) {
-            const targetId = message.content.slice(7).trim();
-            if (!/^\d+$/.test(targetId)) {
-                message.channel.send('❌ Invalid server ID! Must be numbers only.');
-                return;
-            }
-            userOp.data.targetId = targetId;
-            userOp.state = 'data_received';
-            
-            // Ask for confirmation
-            const confirmEmbed = new MessageEmbed()
-                .setColor('#00ff00')
-                .setTitle('✅ All Data Received!')
-                .setDescription('Please confirm to start cloning:')
-                .addFields(
-                    { name: 'Source Server ID', value: userOp.data.sourceId, inline: true },
-                    { name: 'Target Server ID', value: userOp.data.targetId, inline: true },
-                    { name: 'Clone Emojis?', value: 'Yes (default)', inline: true }
-                )
-                .setFooter('React with ✅ to confirm or ❌ to cancel')
-                .setTimestamp();
 
-            const confirmMessage = await message.channel.send({ embeds: [confirmEmbed] });
-            await confirmMessage.react('✅');
-            await confirmMessage.react('❌');
-            
-            userOp.confirmMessage = confirmMessage;
-            activeOperations.set(message.author.id, userOp);
-        }
-    }
-});
-
-// Handle button clicks
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
-    
-    const userOp = activeOperations.get(interaction.user.id);
-    if (!userOp) return;
-    
-    if (interaction.customId === 'start_clone') {
-        if (userOp.state === 'data_received') {
-            // Start the cloning process
-            userOp.state = 'cloning';
-            activeOperations.set(interaction.user.id, userOp);
-            
-            await interaction.update({
-                content: '🚀 Starting cloning process... This may take several minutes.',
-                components: [],
-                embeds: []
+            // Start interactive form
+            userData.set(message.author.id, {
+                step: 'awaiting_token',
+                token: null,
+                sourceId: null,
+                targetId: null,
+                channel: message.channel
             });
-            
-            // Create selfbot client with user's token
+
+            // Send instructions via DM
             try {
-                const selfbotClient = new DiscordSelfbot.Client();
-                await selfbotClient.login(userOp.data.token);
+                const dm = await message.author.createDM();
                 
-                const connectionManager = new ConnectionManager(selfbotClient);
-                const cloner = new ServerCloner(selfbotClient, connectionManager);
+                const instructions = `
+🔧 **Discord Server Cloner - Setup**
+
+Please send the following information in this DM:
+
+1️⃣ **Your Discord Token**
+Send: \`token YOUR_TOKEN_HERE\`
+*(Get token from: F12 → Application → Local Storage → token)*
+
+2️⃣ **Source Server ID**
+Send: \`source SERVER_ID\`
+*(Right-click server → Copy ID)*
+
+3️⃣ **Target Server ID**
+Send: \`target SERVER_ID\`
+*(You need Admin permissions in target server)*
+
+⚠️ **Important:**
+• This will DELETE ALL content in target server
+• Keep your token private
+• Cancel anytime by sending \`cancel\`
+                `;
                 
-                // Set log channel and user ID
-                cloner.logChannel = userOp.logChannel;
-                cloner.userId = interaction.user.id;
-                
-                // Start cloning
-                await cloner.cloneServer(userOp.data.sourceId, userOp.data.targetId, true);
-                
-                // Clean up
-                selfbotClient.destroy();
-                activeOperations.delete(interaction.user.id);
-                
-                // Delete DM messages for security
-                if (userOp.dmChannel) {
-                    try {
-                        const messages = await userOp.dmChannel.messages.fetch({ limit: 50 });
-                        messages.forEach(msg => {
-                            if (msg.author.id === client.user.id || msg.content.includes('token')) {
-                                msg.delete().catch(() => {});
-                            }
-                        });
-                    } catch (e) {}
-                }
-                
+                dm.send(instructions);
+                message.channel.send('📨 I\'ve sent you a DM with instructions. Please check your DMs!');
             } catch (error) {
-                userOp.logChannel.send(`❌ Cloning failed: ${error.message}`);
-                log.error(`Cloning failed for user ${interaction.user.id}: ${error.message}`);
-                activeOperations.delete(interaction.user.id);
+                message.channel.send('❌ Cannot send you a DM. Please enable DMs from server members.');
+                userData.delete(message.author.id);
             }
-        } else {
-            await interaction.reply({
-                content: '❌ Please provide all required information in DMs first!',
-                ephemeral: true
-            });
         }
-    } 
-    else if (interaction.customId === 'cancel_clone') {
-        activeOperations.delete(interaction.user.id);
-        await interaction.update({
-            content: '❌ Cloning cancelled.',
-            components: [],
-            embeds: []
-        });
-    }
-});
 
-// Handle reaction confirmation
-client.on('messageReactionAdd', async (reaction, user) => {
-    if (user.bot) return;
-    
-    const userOp = activeOperations.get(user.id);
-    if (!userOp || !userOp.confirmMessage) return;
-    
-    if (reaction.message.id === userOp.confirmMessage.id) {
-        if (reaction.emoji.name === '✅') {
-            userOp.state = 'ready_to_start';
-            activeOperations.set(user.id, userOp);
-            
-            // Update menu message in main channel
-            const updatedEmbed = new MessageEmbed()
-                .setColor('#00ff00')
-                .setTitle('✅ Ready to Start!')
-                .setDescription('All data received and confirmed!')
-                .addFields(
-                    { name: 'Source Server ID', value: userOp.data.sourceId, inline: true },
-                    { name: 'Target Server ID', value: userOp.data.targetId, inline: true },
-                    { name: 'Status', value: '✅ Ready to start', inline: true }
-                )
-                .setFooter('Click "Start Cloning Process" button to begin')
-                .setTimestamp();
-
-            // Update buttons
-            const row1 = new MessageActionRow()
-                .addComponents(
-                    new MessageButton()
-                        .setCustomId('start_clone')
-                        .setLabel('🚀 Start Cloning Now!')
-                        .setStyle('SUCCESS')
-                );
-
-            const row2 = new MessageActionRow()
-                .addComponents(
-                    new MessageButton()
-                        .setCustomId('cancel_clone')
-                        .setLabel('❌ Cancel')
-                        .setStyle('DANGER')
-                );
-
-            await userOp.menuMessage.edit({
-                embeds: [updatedEmbed],
-                components: [row1, row2]
-            });
-            
-            // Send confirmation in DM
-            userOp.dmChannel.send('✅ Confirmed! Return to the server channel and click "Start Cloning Now!"');
-            
-        } else if (reaction.emoji.name === '❌') {
-            activeOperations.delete(user.id);
-            userOp.dmChannel.send('❌ Cloning cancelled.');
-            userOp.menuMessage.edit({
-                content: '❌ Cloning cancelled by user.',
-                components: [],
-                embeds: []
-            });
+        // Handle cancel command
+        if (message.content.toLowerCase() === 'cancel') {
+            const userState = userData.get(message.author.id);
+            if (userState) {
+                userData.delete(message.author.id);
+                message.channel.send('✅ Operation cancelled.');
+            }
         }
-    }
-});
 
-// Error handling
-client.on('error', (error) => {
-    log.error(`Bot error: ${error.message}`);
-});
+        // Handle help command
+        if (message.content === '!help') {
+            const helpMessage = `
+📖 **Server Cloner Commands:**
 
+\`!clone\` - Start server cloning process
+\`!status\` - Check bot status
+\`!servers\` - List servers you're in
+\`cancel\` - Cancel current operation
+
+**How to use:**
+1. Type \`!clone\` in any channel
+2. Follow instructions in DMs
+3. Send token and server IDs
+4. Confirm and wait for completion
+
+**Auto-Reconnect Feature:**
+• Automatically reconnects if cloning slows down
+• Resumes from where it left off
+• Max 3 reconnection attempts
+            `;
+            
+            message.channel.send(helpMessage);
+        }
+
+        // Handle status command
+        if (message.content === '!status') {
+            const uptime = process.uptime();
+            const hours = Math.floor(uptime / 3600);
+            const minutes = Math.floor((uptime % 3600) / 60);
+            const seconds = Math.floor(uptime % 60);
+            
+            const statusMessage = `
+📊 **Bot Status:**
+• Logged in: ${client.user?.tag || 'Not connected'}
+• Uptime: ${hours}h ${minutes}m ${seconds}s
+• Auto-reconnect: ${CONFIG.AUTO_RECONNECT ? '✅ Enabled' : '❌ Disabled'}
+• Max reconnects: ${CONFIG.MAX_RECONNECT_ATTEMPTS}
+• Active clones: ${userData.size}
+            `;
+            
+            message.channel.send(statusMessage);
+        }
+
+        // Handle servers command
+        if (message.content === '!servers') {
+            const servers = client.guilds.cache.map(guild => 
+                `• **${guild.name}** - \`${guild.id}\``
+            ).join('\n');
+            
+            const serverList = `📋 **Servers (${client.guilds.cache.size}):**\n${servers}`;
+            
+            if (serverList.length > 2000) {
+                const chunks = serverList.match(/.{1,2000}/g);
+                for (const chunk of chunks) {
+                    message.channel.send(chunk);
+                    await delay(500);
+                }
+            } else {
+                message.channel.send(serverList);
+            }
+        }
+    });
+
+    // Handle DM messages for data collection
+    client.on('messageCreate', async (message) => {
+        if (message.channel.type !== 'DM' || message.author.bot) return;
+        
+        const userState = userData.get(message.author.id);
+        if (!userState) return;
+        
+        const content = message.content.trim();
+        
+        if (content.toLowerCase() === 'cancel') {
+            userData.delete(message.author.id);
+            message.channel.send('✅ Operation cancelled.');
+            return;
+        }
+        
+        if (userState.step === 'awaiting_token') {
+            if (content.startsWith('token ')) {
+                const token = content.slice(6).trim();
+                userState.token = token;
+                userState.step = 'awaiting_source';
+                userData.set(message.author.id, userState);
+                
+                message.channel.send('✅ Token received! Now send source server ID: `source SERVER_ID`');
+            } else {
+                message.channel.send('❌ Please send token in format: `token YOUR_TOKEN_HERE`');
+            }
+        } 
+        else if (userState.step === 'awaiting_source') {
+            if (content.startsWith('source ')) {
+                const sourceId = content.slice(7).trim();
+                if (!/^\d+$/.test(sourceId)) {
+                    message.channel.send('❌ Invalid server ID! Must be numbers only.');
+                    return;
+                }
+                userState.sourceId = sourceId;
+                userState.step = 'awaiting_target';
+                userData.set(message.author.id, userState);
+                
+                message.channel.send('✅ Source server ID received! Now send target server ID: `target SERVER_ID`');
+            } else {
+                message.channel.send('❌ Please send source ID in format: `source SERVER_ID`');
+            }
+        }
+        else if (userState.step === 'awaiting_target') {
+            if (content.startsWith('target ')) {
+                const targetId = content.slice(7).trim();
+                if (!/^\d+$/.test(targetId)) {
+                    message.channel.send('❌ Invalid server ID! Must be numbers only.');
+                    return;
+                }
+                userState.targetId = targetId;
+                userState.step = 'ready';
+                userData.set(message.author.id, userState);
+                
+                // Ask for confirmation
+                const confirmMessage = `
+✅ **All data received!**
+
+**Source Server:** \`${userState.sourceId}\`
+**Target Server:** \`${userState.targetId}\`
+
+⚠️ **WARNING:** This will DELETE ALL existing content in the target server!
+
+Reply with \`confirm\` to start cloning or \`cancel\` to abort.
+                `;
+                
+                message.channel.send(confirmMessage);
+            } else {
+                message.channel.send('❌ Please send target ID in format: `target SERVER_ID`');
+            }
+        }
+        else if (userState.step === 'ready') {
+            if (content.toLowerCase() === 'confirm') {
+                // Start cloning process
+                message.channel.send('🚀 Starting cloning process... This may take several minutes.');
+                userState.channel.send(`🔄 <@${message.author.id}> has started cloning process...`);
+                
+                // Create selfbot client with user's token
+                try {
+                    const selfbotClient = new Client();
+                    await selfbotClient.login(userState.token);
+                    
+                    const userConnectionManager = new ConnectionManager(selfbotClient);
+                    const userCloner = new ServerCloner(selfbotClient, userConnectionManager);
+                    
+                    // Clone the server
+                    await userCloner.cloneServer(
+                        userState.sourceId, 
+                        userState.targetId, 
+                        true, 
+                        userState.channel
+                    );
+                    
+                    // Clean up
+                    selfbotClient.destroy();
+                    
+                } catch (error) {
+                    userState.channel.send(`❌ Cloning failed: ${error.message}`);
+                    log.error(`Cloning failed for user ${message.author.id}: ${error.message}`);
+                } finally {
+                    userData.delete(message.author.id);
+                }
+            } 
+            else if (content.toLowerCase() === 'cancel') {
+                userData.delete(message.author.id);
+                message.channel.send('✅ Operation cancelled.');
+            }
+        }
+    });
+
+    client.on('error', (error) => {
+        log.error(`Client error: ${error.message}`);
+    });
+
+    client.on('warn', (warning) => {
+        log.warning(`Client warning: ${warning}`);
+    });
+}
+
+// ====== Initialize ======
+setupClientEvents(client);
+
+// ====== Error Handling ======
 process.on('unhandledRejection', (error) => {
     log.error(`Unhandled rejection: ${error.message}`);
 });
@@ -903,15 +854,10 @@ process.on('uncaughtException', (error) => {
     process.exit(1);
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-    log.warning('Shutting down bot...');
-    client.destroy();
-    process.exit(0);
-});
-
-// Login bot
-client.login(CONFIG.BOT_TOKEN).catch((error) => {
-    log.error(`Bot login failed: ${error.message}`);
+// ====== Start Bot ======
+client.login(CONFIG.TOKEN).then(() => {
+    log.success('🤖 Bot started successfully!');
+}).catch((error) => {
+    log.error(`❌ Login failed: ${error.message}`);
     process.exit(1);
 });
