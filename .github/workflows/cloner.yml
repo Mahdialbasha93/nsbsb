@@ -1,20 +1,18 @@
-name: Discord Server Cloner Bot
+name: Discord Server Cloner
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
     inputs:
-      run_mode:
-        description: 'Run mode'
-        required: true
-        default: 'start'
-        type: choice
-        options:
-          - start
-          - stop
+      run_duration:
+        description: 'Run duration (hours)'
+        required: false
+        default: '6'
+        type: string
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     
     steps:
     - name: 🚀 Checkout code
@@ -27,36 +25,45 @@ jobs:
         cache: 'npm'
     
     - name: 📥 Install dependencies
-      run: npm ci
-    
-    - name: 🔑 Setup environment
       run: |
-        echo "TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
-        echo "ALLOWED_USER_IDS=${{ secrets.ALLOWED_USER_IDS }}" >> .env
-        echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
+        echo "Installing dependencies..."
+        npm install discord.js-selfbot-v13@1.3.0 dotenv@16.0.3 --no-audit --no-fund --legacy-peer-deps
+        echo "✅ Dependencies installed"
     
-    - name: 🏃 Run Server Cloner Bot
+    - name: 🏃 Run Server Cloner
       env:
         TOKEN: ${{ secrets.DISCORD_TOKEN }}
         ALLOWED_USER_IDS: ${{ secrets.ALLOWED_USER_IDS }}
       run: |
         echo "=========================================="
-        echo "🚀 Starting Discord Server Cloner Bot..."
-        echo "🤖 Bot will now listen for !clone commands"
+        echo "🤖 DISCORD SERVER CLONER"
         echo "=========================================="
         echo ""
-        echo "📋 Bot Information:"
-        echo "• Auto-Reconnect: Enabled"
-        echo "• Max Reconnects: 3"
-        echo "• Slow Threshold: 30 seconds"
-        echo "• Emoji Delay: 2 seconds"
+        echo "📋 Configuration:"
+        echo "• Node.js: $(node --version)"
+        echo "• Auto-reconnect: Enabled"
+        echo "• Max reconnects: 3"
+        echo "• Slow threshold: 30 seconds"
         echo ""
-        echo "📝 Available Commands:"
-        echo "!clone <sourceID> <targetID> - Clone server"
-        echo "!help - Show help information"
+        echo "📝 Commands:"
+        echo "!clone - Start cloning process"
+        echo "!help - Show help"
         echo "!status - Check bot status"
+        echo "!servers - List servers"
+        echo "cancel - Cancel operation"
+        echo ""
+        echo "⚡ Auto-Reconnect Features:"
+        echo "• Detects slow operations"
+        echo "• Reconnects automatically"
+        echo "• Resumes cloning"
         echo ""
         echo "=========================================="
+        echo ""
         
         # Run the bot
-        node index.js
+        timeout 6h node index.js || true
+        
+        echo ""
+        echo "=========================================="
+        echo "🛑 Bot stopped"
+        echo "=========================================="
