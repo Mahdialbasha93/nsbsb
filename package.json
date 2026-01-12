@@ -1,23 +1,25 @@
 {
   "name": "discord-server-cloner",
-  "version": "1.0.0",
-  "description": "A Discord selfbot tool to clone entire servers with emoji support and access control",
+  "version": "2.0.0",
+  "description": "Discord Server Cloner Bot with Auto-Reconnect",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "discord.js-selfbot-v13": "^1.9.0",
+    "dotenv": "^16.0.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   },
   "keywords": [
     "discord",
-    "selfbot",
-    "server",
-    "clone",
-    "emoji"
+    "server-cloner",
+    "bot",
+    "selfbot"
   ],
-  "author": "Manish",
-  "license": "MIT",
-  "dependencies": {
-    "discord.js-selfbot-v13": "^3.7.0",
-    "dotenv": "^17.2.2"
-  }
+  "author": "Server Cloner",
+  "license": "MIT"
 }
