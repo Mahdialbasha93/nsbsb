@@ -1,15 +1,15 @@
 {
   "name": "discord-server-cloner",
-  "version": "2.0.0",
+  "version": "1.3.0",
   "description": "Discord Server Cloner Bot with Auto-Reconnect",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "install-deps": "npm install discord.js-selfbot-v13@1.3.0 dotenv@16.0.3 --no-audit --no-fund --legacy-peer-deps"
   },
   "dependencies": {
-    "discord.js-selfbot-v13": "^1.5.0",
-    "dotenv": "^16.0.3"
+    "discord.js-selfbot-v13": "1.3.0",
+    "dotenv": "16.0.3"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -17,8 +17,7 @@
   "keywords": [
     "discord",
     "server-cloner",
-    "bot",
-    "selfbot"
+    "bot"
   ],
   "author": "Server Cloner",
   "license": "MIT"
