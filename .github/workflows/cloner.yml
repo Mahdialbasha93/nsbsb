@@ -1,0 +1,62 @@
+name: Discord Server Cloner Bot
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      run_mode:
+        description: 'Run mode'
+        required: true
+        default: 'start'
+        type: choice
+        options:
+          - start
+          - stop
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚀 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: 📥 Install dependencies
+      run: npm ci
+    
+    - name: 🔑 Setup environment
+      run: |
+        echo "TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
+        echo "ALLOWED_USER_IDS=${{ secrets.ALLOWED_USER_IDS }}" >> .env
+        echo "DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
+    
+    - name: 🏃 Run Server Cloner Bot
+      env:
+        TOKEN: ${{ secrets.DISCORD_TOKEN }}
+        ALLOWED_USER_IDS: ${{ secrets.ALLOWED_USER_IDS }}
+      run: |
+        echo "=========================================="
+        echo "🚀 Starting Discord Server Cloner Bot..."
+        echo "🤖 Bot will now listen for !clone commands"
+        echo "=========================================="
+        echo ""
+        echo "📋 Bot Information:"
+        echo "• Auto-Reconnect: Enabled"
+        echo "• Max Reconnects: 3"
+        echo "• Slow Threshold: 30 seconds"
+        echo "• Emoji Delay: 2 seconds"
+        echo ""
+        echo "📝 Available Commands:"
+        echo "!clone <sourceID> <targetID> - Clone server"
+        echo "!help - Show help information"
+        echo "!status - Check bot status"
+        echo ""
+        echo "=========================================="
+        
+        # Run the bot
+        node index.js
